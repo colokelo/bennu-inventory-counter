@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Bennu Agriworks Inventory Counter</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+  :root {
+    --bennu-green: #075e54;
+    --bennu-green-dark: #06453e;
+    --bennu-gold: #c9a13f;
+    --bennu-bg: #f5f5f5;
+    --bennu-card-bg: #ffffff;
+  }
+
+  body {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    margin: 0;
+    padding: 16px;
+    background: var(--bennu-bg);
+  }
+  .card {
+    max-width: 480px;
+    margin: 0 auto;
+    background: var(--bennu-card-bg);
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    border-top: 4px solid var(--bennu-gold);   /* gold accent */
+  }
+  h1 {
+    font-size: 1.2rem;
+    margin-bottom: 12px;
+    color: var(--bennu-green);
+    text-align: center;
+  }
+  label {
+    display: block;
+    font-size: 0.9rem;
+    margin-top: 8px;
+    margin-bottom: 4px;
+  }
+  select, input[type="text"], input[type="number"] {
+    width: 100%;
+    padding: 8px 10px;
+    font-size: 0.95rem;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    box-sizing: border-box;
+  }
+  select:focus, input[type="text"]:focus, input[type="number"]:focus {
+    outline: none;
+    border-color: var(--bennu-gold);
+    box-shadow: 0 0 0 1px var(--bennu-gold33, rgba(201,161,63,0.4));
+  }
+  button {
+    width: 100%;
+    padding: 10px;
+    margin-top: 14px;
+    font-size: 1rem;
+    border-radius: 999px;
+    border: none;
+    cursor: pointer;
+    background: var(--bennu-green-dark);   /* deep green */
+    color: #fff;
+    font-weight: 600;
+  }
+  button:hover:not(:disabled) {
+    background: var(--bennu-green);
+  }
+  button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  .row {
+    display: flex;
+    gap: 8px;
+  }
+  .row > div {
+    flex: 1;
+  }
+  .msg {
+    margin-top: 10px;
+    font-size: 0.9rem;
+    text-align: center;
+  }
+  .msg.ok {
+    color: #0a7a28;
+  }
+  .msg.err {
+    color: #b00020;
+  }
+</style>
+
+</head>
+<body>
+  <div class="card">
+    <h1>Bennu Agriwoks Inventory Counter</h1>
+
+    <form id="count-form">
+      <label for="counter">Counter name</label>
+      <select id="counter" required>
+        <option value="">-- select --</option>
+        <option>Doreen</option>
+        <option>Dusenge</option>
+        <option>Didas</option>
+        <option>Priscillah</option>
+        <option>Ronald</option>
+        <option>Rita</option>
+        <option>Proscovia</option>
+        <option>Danison</option>
+      </select>
+
+      <label for="store">Store / Location</label>
+      <select id="store" required>
+        <option value="">-- select --</option>
+        <option>Butobe</option>
+        <option>Kinumi</option>
+        <option>MPF</option>
+        <option>Kigumba</option>
+        <option>Bweyale</option>
+        <option>Lutara</option>
+        <option>Lulyago</option>
+        <option>Lungulu</option>
+        <option>Kilak</option>
+        <option>Wingreens</option>
+        <option>PSBU</option>
+      </select>
+
+      <label for="subloc">Sub-location (silo / bin / bag / warehouse)</label>
+      <input id="subloc" type="text" placeholder="e.g. Silo 1, Bag 23" />
+
+      <label for="item">Item name</label>
+      <input id="item" list="items-list" type="text" placeholder="Start typing item name..." required />
+      <datalist id="items-list"></datalist>
+
+
+      <div class="row">
+        <div>
+          <label for="condition">Condition</label>
+          <select id="condition" required>
+            <option value="">-- select --</option>
+            <option>Good</option>
+            <option>Damaged</option>
+            <option>Expired</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div>
+          <label for="qty">Quantity</label>
+          <input id="qty" type="number" min="0" step="1" required />
+        </div>
+      </div>
+
+      <button type="submit" id="submit-btn">Save count</button>
+
+      <div id="msg" class="msg"></div>
+    </form>
+  </div>
+
+  <script>
+    const form = document.getElementById("count-form");
+    const msg = document.getElementById("msg");
+    const btn = document.getElementById("submit-btn");
+
+    const counterSelect = document.getElementById("counter");
+    const storeSelect = document.getElementById("store");
+    const sublocInput = document.getElementById("subloc");
+    const itemInput = document.getElementById("item");
+    const conditionSelect = document.getElementById("condition");
+    const qtyInput = document.getElementById("qty");
+
+        const itemsDataList = document.getElementById("items-list");
+
+    async function loadItems() {
+      try {
+        const res = await fetch("http://localhost:8000/items");
+        if (!res.ok) {
+          console.error("Items endpoint not OK:", res.status);
+          return;
+        }
+        const data = await res.json();
+        const items = data.items || [];
+
+        // Clear any existing options
+        itemsDataList.innerHTML = "";
+        items.forEach(function (name) {
+          const opt = document.createElement("option");
+          opt.value = name;
+          itemsDataList.appendChild(opt);
+        });
+      } catch (err) {
+        console.error("Failed to load items", err);
+      }
+    }
+
+    // Load once when page opens
+    loadItems();
+
+
+    // Prefill counter + store from localStorage
+    const savedCounter = localStorage.getItem("bennu_counter");
+    const savedStore = localStorage.getItem("bennu_store");
+    if (savedCounter) counterSelect.value = savedCounter;
+    if (savedStore) storeSelect.value = savedStore;
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      msg.textContent = "";
+      msg.className = "msg";
+
+      if (!counterSelect.value || !storeSelect.value || !itemInput.value || !conditionSelect.value) {
+        msg.textContent = "Please fill all required fields.";
+        msg.classList.add("err");
+        return;
+      }
+
+      const qty = parseFloat(qtyInput.value);
+      if (isNaN(qty) || qty < 0) {
+        msg.textContent = "Quantity must be a number ≥ 0.";
+        msg.classList.add("err");
+        return;
+      }
+
+      // Save counter + store for next time
+      localStorage.setItem("bennu_counter", counterSelect.value);
+      localStorage.setItem("bennu_store", storeSelect.value);
+
+      const payload = {
+        counter_name: counterSelect.value,
+        store_name: storeSelect.value,
+        sub_location: sublocInput.value || "",
+        item_name: itemInput.value,
+        condition: conditionSelect.value,
+        qty: qty
+      };
+
+      btn.disabled = true;
+
+      try {
+        const res = await fetch("http://localhost:8000/submit_count", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          console.error("Error response:", data);
+          throw new Error(data.detail || "Server error");
+        }
+
+        msg.textContent = "Saved ✅ (you can enter the next item)";
+        msg.classList.add("ok");
+
+        // Clear item / condition / qty only
+        itemInput.value = "";
+        conditionSelect.value = "";
+        qtyInput.value = "";
+        itemInput.focus();
+
+      } catch (err) {
+        console.error(err);
+        msg.textContent = "Error saving ❌ – check connection and try again.";
+        msg.classList.add("err");
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
