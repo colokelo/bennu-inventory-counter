@@ -97,7 +97,7 @@
   <div class="card">
     <h1>Bennu Agriwoks Inventory Counter</h1>
     <div style="font-size: 0.8rem; margin-bottom: 6px; text-align:right;">
-    Pending (offline) items: <span id="pending-count">0</span>
+      Pending (offline) items: <span id="pending-count">0</span>
     </div>
 
     <form id="count-form">
@@ -137,7 +137,6 @@
       <input id="item" list="items-list" type="text" placeholder="Start typing item name..." required />
       <datalist id="items-list"></datalist>
 
-
       <div class="row">
         <div>
           <label for="condition">Condition</label>
@@ -174,6 +173,7 @@
   const qtyInput = document.getElementById("qty");
 
   const itemsDataList = document.getElementById("items-list");
+  const pendingSpan = document.getElementById("pending-count");  // NEW: reference to counter span
   const QUEUE_KEY = "bennu_offline_queue_v1";
 
   // ---------- Load item list from backend ----------
@@ -212,11 +212,21 @@
 
   function saveQueue(queue) {
     localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+    updatePendingCount();                         // NEW: every save updates the UI count
+  }
+
+  // NEW: central function to refresh "Pending (offline) items"
+  function updatePendingCount() {
+    const queue = loadQueue();
+    pendingSpan.textContent = queue.length;
   }
 
   async function flushQueue(sharedPin) {
     let queue = loadQueue();
-    if (!queue.length) return;
+    if (!queue.length) {
+      updatePendingCount();                      // ensure UI is correct
+      return;
+    }
 
     let stillPending = [];
     for (const payload of queue) {
@@ -231,7 +241,6 @@
         });
 
         if (!res.ok) {
-          // Keep this one in the queue and stop trying for now
           stillPending.push(payload);
           const data = await res.json().catch(() => ({}));
           console.error("Failed to flush one queued item:", data);
@@ -263,6 +272,9 @@
     sharedPin = prompt("Enter inventory PIN (ask manager):") || "";
     localStorage.setItem("bennu_shared_pin", sharedPin);
   }
+
+  // On page load, show current queue length
+  updatePendingCount();                           // NEW: initialize the counter
 
   // Try flushing queue on load and when coming back online
   flushQueue(sharedPin);
@@ -305,7 +317,7 @@
     if (!navigator.onLine) {
       const queue = loadQueue();
       queue.push(payload);
-      saveQueue(queue);
+      saveQueue(queue);                           // will also update pending count
 
       msg.textContent = "Offline: item stored on this phone and will sync when connection returns ✅";
       msg.classList.add("ok");
@@ -332,11 +344,10 @@
         const data = await res.json().catch(() => ({}));
         console.error("Error response:", data);
 
-        // If it looks like a network / transient issue, queue it
         if (res.status >= 500 || res.status === 0) {
           const queue = loadQueue();
           queue.push(payload);
-          saveQueue(queue);
+          saveQueue(queue);                      // will update pending count
           msg.textContent = "Server problem: item queued locally and will sync later ✅";
           msg.classList.add("ok");
         } else {
@@ -356,7 +367,7 @@
       console.error(err);
       const queue = loadQueue();
       queue.push(payload);
-      saveQueue(queue);
+      saveQueue(queue);                          // will update pending count
 
       msg.textContent = "Error / no connection: item stored locally and will sync later ✅";
       msg.classList.add("ok");
