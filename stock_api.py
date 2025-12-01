@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header
 from pydantic import BaseModel
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -7,6 +7,8 @@ from datetime import date
 import os
 import json
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
+from pathlib import Path
 
 # Load environment variables from .env (SHEET_ID, SERVICE_ACCOUNT_FILE or SERVICE_ACCOUNT_JSON)
 load_dotenv()
@@ -15,7 +17,10 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://bennu-inventory-counter-production.up.railway.app",  # Railway frontend
+        "null",  # allows file:// origins when you open index.html from a phone/laptop
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -28,7 +33,11 @@ SERVICE_FILE = os.getenv("SERVICE_ACCOUNT_FILE")           # Local dev file opti
 TAB_NAME = "Input_Counts"
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 ITEM_MASTER_RANGE = "Item_Master!B2:B"   # Official_Item_Name column
+SHARED_PIN = os.getenv("SHARED_PIN")     # simple shared PIN for submit_count
 
+# Path to index.html next to this file
+BASE_DIR = Path(__file__).resolve().parent
+INDEX_PATH = BASE_DIR / "index.html"
 
 class CountPayload(BaseModel):
     counter_name: str
@@ -78,9 +87,20 @@ def get_sheets_service():
     return build("sheets", "v4", credentials=creds)
 
 
-@app.get("/")
+@app.get("/", response_class=HTMLResponse)
+def serve_index():
+    """
+    Serve the Bennu Agriworks Inventory Counter UI (index.html)
+    so counters can just open the Railway URL.
+    """
+    return INDEX_PATH.read_text(encoding="utf-8")
+
+
+@app.get("/health")
 def health():
+    """Simple JSON health check endpoint."""
     return {"status": "running"}
+
 
 
 @app.get("/items")
@@ -103,12 +123,21 @@ def get_items():
 
 
 @app.post("/submit_count")
-def submit_count(payload: CountPayload):
+def submit_count(
+    payload: CountPayload,
+    x_shared_pin: str | None = Header(default=None, alias="X-Shared-Pin"),
+):
     """Append a single count row to Input_Counts."""
+    # 1) Simple shared PIN check
+    if SHARED_PIN and x_shared_pin != SHARED_PIN:
+        raise HTTPException(status_code=401, detail="Invalid PIN")
+
+    # 2) Sheets client
     try:
         service = get_sheets_service()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Config error: {e}")
+
 
     today = date.today().isoformat()
 
