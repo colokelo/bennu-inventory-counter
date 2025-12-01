@@ -204,6 +204,14 @@
     if (savedCounter) counterSelect.value = savedCounter;
     if (savedStore) storeSelect.value = savedStore;
 
+    // --- Shared PIN handling ---
+    let sharedPin = localStorage.getItem("bennu_shared_pin");
+    if (!sharedPin) {
+      sharedPin = prompt("Enter inventory PIN (ask manager):") || "";
+      localStorage.setItem("bennu_shared_pin", sharedPin);
+}
+
+
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
       msg.textContent = "";
@@ -240,7 +248,10 @@
       try {
         const res = await fetch("http://bennu-inventory-counter-production.up.railway.app/submit_count", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+          "Content-Type": "application/json",
+          "X-Shared-Pin": sharedPin
+        },
           body: JSON.stringify(payload)
         });
 
