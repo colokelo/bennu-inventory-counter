@@ -174,7 +174,7 @@
 
     async function loadItems() {
       try {
-        const res = await fetch("http://localhost:8000/items");
+        const res = await fetch("http://bennu-inventory-counter-production.up.railway.app/items");
         if (!res.ok) {
           console.error("Items endpoint not OK:", res.status);
           return;
@@ -238,7 +238,7 @@
       btn.disabled = true;
 
       try {
-        const res = await fetch("http://localhost:8000/submit_count", {
+        const res = await fetch("http://bennu-inventory-counter-production.up.railway.app/submit_count", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)
